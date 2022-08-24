@@ -80,6 +80,19 @@ def reset_range_extender():
     set_digital_output(OUTPUT_RESET, OFF)
     wait(0.5)
 
+def homeRangeExtender():
+    movej(home_pos_joint)
+    homing_sock = client_socket_open(TCP_IP, 1234)
+    home_command = "Home"
+    client_socket_write(homing_sock, home_command.encode(("utf-8")))
+    res, rx_data = client_socket_read(sock)
+    result = rx_data.decode("utf-8")
+    client_socket_close(homing_sock)
+    if result == "HomeDone":
+        return True
+    else:
+        return False
+    
 motionComplete = 'isMotionCompleted;'
 moveAxis_negative = 'SET im_move_abs_1/500/;'
 moveAxis_positive = 'SET im_move_abs_1/1000/;'
@@ -178,7 +191,14 @@ tp_popup("Send: {0}, Reveived: {1}".format(set_axis_config, result))
 #result = rx_data.decode("utf-8")
 #tp_popup("Send: {0}, Reveived: {1}".format(estop_reset, result))
 
-sendCmd(home_axis, False)
+
+client_socket_write(sock, set_speed.encode(("utf-8")))
+res, rx_data = client_socket_read(sock)
+result = rx_data.decode("utf-8")
+tp_popup("Send: {0}, Reveived: {1}".format(set_speed, result))
+
+homeRangeExtender()
+#sendCmd(home_axis, False)
 '''
 client_socket_write(sock, home_axis.encode(("utf-8")))
 res, rx_data = client_socket_read(sock)
