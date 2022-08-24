@@ -12,8 +12,8 @@ RANGE_EXT_POS2 = 1000
 #Note that the opened socket is closed when a reconnection is attempted.
 def fn_reconnect():
     global sock
-    global TCP_IP
-    global TCP_PORT
+    #global TCP_IP
+    #global TCP_PORT
     client_socket_close(sock)
     sock = client_socket_open("192.168.137.200", 20002)
     sock = client_socket_open(TCP_IP, TCP_PORT)
@@ -38,7 +38,6 @@ def sendCmd(cmd, tp_popup):
     return result
             
 def waitForMotionComplete():
-    global sock
     while True:
         #wait(0.1)
         '''
@@ -54,7 +53,6 @@ def waitForMotionComplete():
             pass
             
 def checkRangeExtPos(desiredPos):
-    global sock
     '''
     client_socket_write(sock, get_pos.encode(("utf-8")))
     res, rx_data = client_socket_read(sock)
@@ -65,6 +63,14 @@ def checkRangeExtPos(desiredPos):
         return True
     else:
         return False
+
+def checkRangeExtenderStatus():
+    response = sendCmd(estop_status, False)
+    if(response == 'True'):
+        return True
+    elif(response == 'False':
+        return False
+          
         
 def reset_range_extender():
     # Reset Vention Controller and power to contactor
@@ -96,6 +102,7 @@ set_acc = 'SET acceleration/'+str(acc_mm_m) + '/;'
 
 estop_release = 'estop/release/request'
 estop_reset = 'estop/systemreset/request'
+estop_status = 'estop/status;'
 
 home_axis = 'im_home_axis_1;'
 get_pos = 'GET im_get_controller_pos_axis_1;'
