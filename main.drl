@@ -3,8 +3,16 @@ TCP_PORT = 9999
 BUFFER_SIZE = 1024
 
 OUTPUT_RESET = 7
-RANGE_EXT_POS1 = 500
-RANGE_EXT_POS2 = 1000
+RANGE_EXT_POS1 = 1000
+RANGE_EXT_POS2 = 500
+
+
+set_velj(100)
+set_accj(100)
+set_velx(200)
+set_accx(200)
+home_pos_joint = posj(-103.89, -50.55, -107.44, 0, -22, -103.9)
+movej(home_pos_joint)
 
 #The function checks the return value of the client_socket_read() command.
 #A negative value is returned if the connection to the server is terminated or there is a communication problem.
@@ -12,71 +20,72 @@ RANGE_EXT_POS2 = 1000
 #Note that the opened socket is closed when a reconnection is attempted.
 def fn_reconnect():
     global sock
-    #global TCP_IP
-    #global TCP_PORT
+    global TCP_IP
+    global TCP_PORT
     client_socket_close(sock)
-    sock = client_socket_open("192.168.137.200", 20002)
     sock = client_socket_open(TCP_IP, TCP_PORT)
     return
 
 def th_monitor_connection():
+    global sock
     while True:
-        res, rx_data = client_socket_read(g_sock)
+        res, rx_data = client_socket_read(sock)
         if res < 0:
             fn_reconnect()
         #else:
         #    tp_popup("res={0}, rx_data ={1}".format(res, rx_data), DR_PM_MESSAGE)
         wait(0.2)
 
-def sendCmd(cmd, tp_popup):
+def sendCmd(cmd, show_popup):
     global sock
     client_socket_write(sock, cmd.encode(("utf-8")))
     res, rx_data = client_socket_read(sock)
     result = rx_data.decode("utf-8")
-    if tp_popup:
-        tp_popup("Send: {0}, Reveived: {1}".format(set_speed, result))
+    if show_popup:
+        tp_popup("Send: {0}, Reveived: {1}".format(cmd, result))
     return result
             
 def waitForMotionComplete():
     while True:
-        #wait(0.1)
-        '''
-        client_socket_write(sock, motionComplete.encode(("utf-8")))
-        res, rx_data = client_socket_read(sock)
-        result = rx_data.decode("utf-8")
-        #tp_popup("Send: {0}, Reveived: {1}".format(motionComplete.encode(("utf-8")), result))
-        '''
         response = sendCmd(motionComplete, False)
         if(response == "MachineMotion isMotionCompleted = true"):
             break
         elif(response == "isMotionCompleted = false"):
             pass
             
+def checkIfMotionComplete():
+    response = sendCmd(motionComplete, False)
+    if(response == "MachineMotion isMotionCompleted = true"):
+        return True
+    elif(response == "isMotionCompleted = false"):
+        return False    
+            
 def checkRangeExtPos(desiredPos):
-    '''
-    client_socket_write(sock, get_pos.encode(("utf-8")))
-    res, rx_data = client_socket_read(sock)
-    result = rx_data.decode("utf-8")
-    '''
     response = sendCmd(get_pos, False)
-    if(response == desiredPos):
+    if(response == '(' + str(desiredPos) + ')'):
         return True
     else:
         return False
 
+def setRangeExtPos(desiredPos):
+    move_cmd = 'SET im_move_abs_1/' + str(desiredPos) + '/;'
+    sendCmd(move_cmd, False)
+        
 def moveRangeExtender(desiredPos):
+    setRangeExtPos(desiredPos)
     while not checkRangeExtPos(desiredPos):
-        if checkRangeExtenderStatus():
+        if checkRangeExtenderEstopActive():
             reset_range_extender()
-        elif:
+            wait(4)
             setRangeExtPos(desiredPos)
             
-def checkRangeExtenderStatus():
+def checkRangeExtenderEstopActive():
+    global estop_status
     response = sendCmd(estop_status, False)
-    if(response == 'True'):
-        return True
-    elif(response == 'False':
-        return False          
+    if(response == 'estop/status false'):
+        return False
+    else:
+        return True          
         
 def reset_range_extender():
     # Reset Vention Controller and power to contactor
@@ -91,7 +100,7 @@ def homeRangeExtender():
     homing_sock = client_socket_open(TCP_IP, 1234)
     home_command = "Home"
     client_socket_write(homing_sock, home_command.encode(("utf-8")))
-    res, rx_data = client_socket_read(sock)
+    res, rx_data = client_socket_read(homing_sock)
     result = rx_data.decode("utf-8")
     client_socket_close(homing_sock)
     if result == "HomeDone":
@@ -100,13 +109,10 @@ def homeRangeExtender():
         return False
     
 motionComplete = 'isMotionCompleted;'
-moveAxis_negative = 'SET im_move_abs_1/500/;'
-moveAxis_positive = 'SET im_move_abs_1/1000/;'
 
 enclosed_timing_belt_mm_turn = 208
 gearbox_ratio = 5
 mech_gain = enclosed_timing_belt_mm_turn / gearbox_ratio
-#m.configServo(axis, MECH_GAIN.enclosed_timing_belt_mm_turn / 5, DIRECTION.POSITIVE, 10.0)
 set_micro_step = 'SET de_axis_1_microsteps_config/8/;'
 set_mech_gain = 'SET de_axis_1_mechanical_gain_config/' + str(mech_gain) + '/;'
 set_direction = 'SET de_axis_1_direction_config/1/;'
@@ -117,7 +123,7 @@ speed_mm_m = speed_mm_sec*60
 set_speed = 'SET speed/'+str(speed_mm_m) + '/;'
 acc_mm_sec = 700
 acc_mm_m = acc_mm_sec*60
-set_acc = 'SET acceleration/'+str(acc_mm_m) + '/;'
+set_acc = 'SET acceleration/'+str(acc_mm_sec) + '/;'
 
 estop_release = 'estop/release/request'
 estop_reset = 'estop/systemreset/request'
@@ -131,127 +137,28 @@ get_pos = 'GET im_get_controller_pos_axis_1;'
 sock = client_socket_open(TCP_IP, TCP_PORT)
 res, rx_data = client_socket_read(sock)
 result = rx_data.decode("utf-8")
-tp_popup("Sent: {0}, Received: {1}".format("connecting....", result))
+#tp_popup("Sent: {0}, Received: {1}".format("connecting....", result))
 
 # Start thread to monitor connection and reconnect if it drops out
-g_th_id1 = thread_run(th_monitor_connection, loop=True)
+#g_th_id1 = thread_run(th_monitor_connection, loop=True)
 
 reset_range_extender()    
 
 # Configure Range Extender
-sendCmd(set_speed, True)
-'''
-client_socket_write(sock, set_speed.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_speed, result))
-'''
-
-sendCmd(set_acc, True)
-'''
-client_socket_write(sock, set_acc.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_acc, result))
-'''
-
-sendCmd(set_micro_step, True)
-'''
-client_socket_write(sock, set_micro_step.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_micro_step, result))
-'''
-
-sendCmd(set_mech_gain, True)
-'''
-client_socket_write(sock, set_mech_gain.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_mech_gain, result))
-'''
-
-sendCmd(set_direction, True)
-'''
-client_socket_write(sock, set_direction.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_direction, result))
-'''
-
-sendCmd(set_axis_config, True)
-'''
-client_socket_write(sock, set_axis_config.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_axis_config, result))
-'''
-
-#client_socket_write(sock, estop_release.encode(("utf-8")))
-#res, rx_data = client_socket_read(sock)
-#result = rx_data.decode("utf-8")
-#tp_popup("Send: {0}, Reveived: {1}".format(estop_release, result))
-
-#client_socket_write(sock, estop_reset.encode(("utf-8")))
-#res, rx_data = client_socket_read(sock)
-#result = rx_data.decode("utf-8")
-#tp_popup("Send: {0}, Reveived: {1}".format(estop_reset, result))
-
-
-client_socket_write(sock, set_speed.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-tp_popup("Send: {0}, Reveived: {1}".format(set_speed, result))
+sendCmd(set_speed, False)
+sendCmd(set_acc, False)
+sendCmd(set_micro_step, False)
+sendCmd(set_mech_gain, False)
+sendCmd(set_direction, False)
+sendCmd(set_axis_config, False)
+#sendCmd(estop_release, False)
+#sendCmd(estop_reset, False)
 
 homeRangeExtender()
 #sendCmd(home_axis, False)
-'''
-client_socket_write(sock, home_axis.encode(("utf-8")))
-res, rx_data = client_socket_read(sock)
-result = rx_data.decode("utf-8")
-#tp_popup("Send: {0}, Reveived: {1}".format(home_axis, result))
-'''
-
 waitForMotionComplete()
 
 while True:
-
-    sendCmd(moveAxis_positive, False)
-    '''
-    client_socket_write(sock, moveAxis_positive.encode("utf-8"))
-    res, rx_data = client_socket_read(sock)
-    result = rx_data.decode("utf-8")
-    #tp_popup("Send: {0}, Reveived: {1}".format(moveAxis_positive, result))
-    '''
-    
     moveRangeExtender(RANGE_EXT_POS1)
-    '''
-    while not checkRangeExtPos(RANGE_EXT_POS1):
-        if checkRangeExtenderStatus():
-            reset_range_extender()
-        elif:
-            setRangeExtPos(RANGE_EXT_POS1)
-    '''
-
-    #checkRangeExtPos(RANGE_EXT_POS1)
-    #waitForMotionComplete()
-
-    sendCmd(moveAxis_negative, False)
-    '''
-    client_socket_write(sock, moveAxis_negative.encode("utf-8"))
-    res, rx_data = client_socket_read(sock)
-    result = rx_data.decode("utf-8")
-    #tp_popup("Send: {0}, Reveived: {1}".format(moveAxis_negative, result))
-    '''
-
-    moveRangeExtender(RANGE_EXT_POS2)
-    '''
-    while not checkRangeExtPos(RANGE_EXT_POS2):
-        if checkRangeExtenderStatus():
-            reset_range_extender()
-        elif:
-            setRangeExtPos(RANGE_EXT_POS2)
-    '''
     
-    #checkRangeExtPos(RANGE_EXT_POS2)
-    #waitForMotionComplete()
+    moveRangeExtender(RANGE_EXT_POS2)
