@@ -1,3 +1,9 @@
+'''
+This Program tests range extender logic, it should be able to move the range extender, be interrupted by the
+light curtain, reset, then continue to it's commanded position.
+Likewise the press should be able to recover from a light curtain break.
+'''
+
 TCP_IP = "192.168.127.120"
 TCP_PORT = 9999
 BUFFER_SIZE = 1024
