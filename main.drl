@@ -64,13 +64,19 @@ def checkRangeExtPos(desiredPos):
     else:
         return False
 
+def moveRangeExtender(desiredPos):
+    while not checkRangeExtPos(desiredPos):
+        if checkRangeExtenderStatus():
+            reset_range_extender()
+        elif:
+            setRangeExtPos(desiredPos)
+            
 def checkRangeExtenderStatus():
     response = sendCmd(estop_status, False)
     if(response == 'True'):
         return True
     elif(response == 'False':
-        return False
-          
+        return False          
         
 def reset_range_extender():
     # Reset Vention Controller and power to contactor
@@ -218,11 +224,14 @@ while True:
     #tp_popup("Send: {0}, Reveived: {1}".format(moveAxis_positive, result))
     '''
     
+    moveRangeExtender(RANGE_EXT_POS1)
+    '''
     while not checkRangeExtPos(RANGE_EXT_POS1):
         if checkRangeExtenderStatus():
             reset_range_extender()
         elif:
             setRangeExtPos(RANGE_EXT_POS1)
+    '''
 
     #checkRangeExtPos(RANGE_EXT_POS1)
     #waitForMotionComplete()
@@ -235,11 +244,14 @@ while True:
     #tp_popup("Send: {0}, Reveived: {1}".format(moveAxis_negative, result))
     '''
 
+    moveRangeExtender(RANGE_EXT_POS2)
+    '''
     while not checkRangeExtPos(RANGE_EXT_POS2):
         if checkRangeExtenderStatus():
             reset_range_extender()
         elif:
             setRangeExtPos(RANGE_EXT_POS2)
+    '''
     
     #checkRangeExtPos(RANGE_EXT_POS2)
     #waitForMotionComplete()
