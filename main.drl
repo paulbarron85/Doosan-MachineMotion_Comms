@@ -2,7 +2,25 @@ TCP_IP = "192.168.127.120"
 TCP_PORT = 9999
 BUFFER_SIZE = 1024
 
-OUTPUT_RESET = 7
+OUTPUT_VACUUM_GRIPPER = 1 #Set high to grip part
+OUTPUT_BLOW_OFF = 2 #Ensure part doesn't get stuck in vacuum cups
+OUTPUT_GREEN_LIGHT = 3 #Run status
+OUTPUT_RED_LIGHT = 4 #Fault Status
+OUTPUT_PRESS_ACTIVATE = 5 #Press cycle
+OUTPUT_PRESS_INHIBIT = 6 #Press inhibit
+OUTPUT_RESET = 7 #Overriding relay & Vention reset
+
+INPUT_VACUUM_SWITCH = 1 #Used to detect if part is present
+INPUT_START_BUTTON = 2 #Signal from remote pendant
+INPUT_STOP_BUTTON = 3 #Signal from remote pendant
+INPUT_REMOTE_RESUME_BUTTON = 4 #Signal from remote pendant
+INPUT_REMOTE_PAUSE_BUTTON = 5 #Signal from remote pendant
+INPUT_PRESS_AT_TOP = 6 #Signal from Press Controller
+INPUT_PRESS_AT_BOTTOM = 7 #Signal from Press Controller
+INPUT_SAFETY_LIGHT_RESET = 8 #Used to turn on servos
+INPUT_REMOTE_CONTROL1 = 15 #Permanently wired high
+INPUT_REMOTE_CONTROL2 = 16 #Permanently wired high
+
 RANGE_EXT_POS1 = 1000
 RANGE_EXT_POS2 = 500
 
@@ -107,6 +125,55 @@ def homeRangeExtender():
         return True
     else:
         return False
+
+def activatePress():
+    parts_remaining = 5
+    set_digital_output(OUTPUT_RESET, ON)
+    cycle_started = False
+    
+    if parts_remaining > 0:
+        while True:
+            if get_digital_input(INPUT_PRESS_AT_TOP) or cycle_started:
+                press_fault_down = False
+                press_fault_up = False
+                cycle_started = True
+                
+                set_digital_output(OUTPUT_PRESS_ACTIVATE, ON)
+                
+                down_time = 0
+                while not get_digital_input(INPUT_PRESS_AT_BOTTOM):
+                    wait(0.05)
+                    down_time = down_time + 0.05
+                    if down_time > 2:
+                        press_fault_down = True
+                        break
+        
+                up_time = 0
+                if not press_fault_down:
+                    while not get_digital_input(INPUT_PRESS_AT_TOP):
+                        wait(0.05)
+                        up_time = up_time + 0.05
+                        if up_time > 2:
+                            press_fault_up = True
+                            break
+                
+                set_digital_output(OUTPUT_PRESS_ACTIVATE, OFF)
+                        
+                if not press_fault_down and not press_fault_up:
+                    break #success
+                else:
+                    if press_fault_down:
+                        tp_popup("Press down timeout fault")
+                    elif press_fault_up:
+                        tp_popup("Press up timeout fault")    
+                
+        else:
+            state = 2
+            tp_popup("Error - Press not at top", DR_PM_ALARM)
+            state = 1
+    
+    set_digital_output(OUTPUT_RESET, OFF)  
+    
     
 motionComplete = 'isMotionCompleted;'
 
@@ -162,3 +229,5 @@ while True:
     moveRangeExtender(RANGE_EXT_POS1)
     
     moveRangeExtender(RANGE_EXT_POS2)
+    
+    activatePress() 
