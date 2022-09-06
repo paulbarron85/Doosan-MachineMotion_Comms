@@ -33,10 +33,15 @@ RANGE_EXT_POS2 = 500
 
 set_velj(100)
 set_accj(100)
-set_velx(200)
-set_accx(200)
-home_pos_joint = posj(-103.89, -50.55, -107.44, 0, -22, -103.9)
-movej(home_pos_joint)
+set_velx(1000)
+set_accx(1000)
+
+home_pos1 = posx(232.29, 898.08, 79.73, 76.11, 179.99, 76.1)
+home_pos2 = posx(232.29, 898.08, 279.73, 76.11, 179.99, 76.1)
+home_pos_joint1 = posj(-103.89, -50.55, -107.44, 0, -22, -103.9)
+home_pos_joint2 = posj(-103.89, -37.93, -108.29, 0, -33.77, -103.9)
+
+movej(home_pos_joint1)
 
 #The function checks the return value of the client_socket_read() command.
 #A negative value is returned if the connection to the server is terminated or there is a communication problem.
@@ -120,7 +125,7 @@ def reset_range_extender():
     wait(0.5)
 
 def homeRangeExtender():
-    movej(home_pos_joint)
+    movej(home_pos_joint1)
     homing_sock = client_socket_open(TCP_IP, 1234)
     home_command = "Home"
     client_socket_write(homing_sock, home_command.encode(("utf-8")))
@@ -232,8 +237,15 @@ homeRangeExtender()
 waitForMotionComplete()
 
 while True:
-    moveRangeExtender(RANGE_EXT_POS1)
     
-    moveRangeExtender(RANGE_EXT_POS2)
+    moveRangeExtender(RANGE_EXT_POS1) #1000
+    movel(home_pos1)
+    movel(home_pos2, radius = 10)
+    movel(home_pos1)
+
+    moveRangeExtender(RANGE_EXT_POS2) #500
+    movej(home_pos_joint1)
+    movej(home_pos_joint2, radius = 10)
+    movej(home_pos_joint1)
     
-    activatePress() 
+    #activatePress() 
